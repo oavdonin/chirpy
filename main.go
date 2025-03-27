@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 )
 
@@ -9,7 +10,15 @@ type webServer struct{}
 func (webServer) ServeHTTP(http.ResponseWriter, *http.Request) {}
 
 func main() {
+	const port = "8080"
+
 	mux := http.NewServeMux()
-	mux.Handle("/", webServer{})
-	http.ListenAndServe(":8080", mux)
+
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: mux,
+	}
+
+	log.Printf("Serving on port: %s\n", port)
+	log.Fatal(srv.ListenAndServe())
 }
