@@ -5,14 +5,15 @@ import (
 	"net/http"
 )
 
-type webServer struct{}
+// type webServer struct{}
 
-func (webServer) ServeHTTP(http.ResponseWriter, *http.Request) {}
+// func (webServer) ServeHTTP(http.ResponseWriter, *http.Request) {}
 
 func main() {
 	const port = "8080"
 
 	mux := http.NewServeMux()
+	mux.Handle("/", http.FileServer(http.Dir(".")))
 
 	srv := &http.Server{
 		Addr:    ":" + port,
