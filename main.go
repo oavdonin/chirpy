@@ -13,6 +13,7 @@ import (
 )
 
 type apiConfig struct {
+	platform       string
 	fileserverHits atomic.Int32
 	db             *database.Queries
 }
@@ -29,19 +30,33 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error opening database: %s", err)
 	}
+	defer dbConn.Close()
+
+	err = dbConn.Ping()
+	if err != nil {
+		log.Fatal("Error occured while trying to access the DB")
+	}
+
 	dbQueries := database.New(dbConn)
+
+	platform := os.Getenv("PLATFORM")
+	if platform == "" {
+		log.Fatal("PLATFORM environment variable must be set")
+	}
 
 	cfg := apiConfig{
 		fileserverHits: atomic.Int32{},
 		db:             dbQueries,
+		platform:       platform,
 	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/app/", cfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(".")))))
 	mux.HandleFunc("GET /api/healthz", healthcheckHandler)
 	mux.HandleFunc("GET /admin/metrics", cfg.showMetricsHandler)
-	mux.HandleFunc("POST /admin/reset", cfg.resetMetricsHandler)
+	mux.HandleFunc("POST /admin/reset", cfg.resetUsersHandler)
 	mux.HandleFunc("POST /api/validate_chirp", validateChirpHandler)
+	mux.HandleFunc("POST /api/users", cfg.createUserHandler)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
