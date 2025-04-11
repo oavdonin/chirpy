@@ -23,6 +23,8 @@ type Chirp struct {
 	UserID    uuid.UUID `json:"user_id"`
 }
 
+type Chirps []Chirp
+
 var badwords = map[string]struct{}{
 	"kerfuffle": {},
 	"sharbert":  {},
@@ -62,10 +64,52 @@ func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request)
 		UserID: requestBody.UserID,
 	})
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Error occured while chirp creation.", nil)
+		respondWithError(w, http.StatusBadRequest, "Error occured while chirp creation.", err)
 		return
 	}
 	respondWithJSON(w, http.StatusCreated, Chirp{
+		ID:        chirp.ID,
+		CreatedAt: chirp.CreatedAt,
+		UpdatedAt: chirp.UpdatedAt,
+		Body:      chirp.Body,
+		UserID:    chirp.UserID,
+	})
+}
+
+func (cfg *apiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request) {
+	dbChirps, err := cfg.db.GetAllChirps(r.Context())
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Error occured while chirp retrieval.", err)
+		return
+	}
+
+	chirps := Chirps{}
+	for _, chirp := range dbChirps {
+		chirps = append(chirps, Chirp{
+			ID:        chirp.ID,
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+			Body:      chirp.Body,
+			UserID:    chirp.UserID,
+		})
+	}
+
+	respondWithJSON(w, http.StatusOK, chirps)
+}
+
+func (cfg *apiConfig) getCertainChirp(w http.ResponseWriter, r *http.Request) {
+	userId, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Given userId is not valid", err)
+		return
+	}
+	chirp, err := cfg.db.GetChirpByID(r.Context(), userId)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "Chirp not found", err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, Chirp{
 		ID:        chirp.ID,
 		CreatedAt: chirp.CreatedAt,
 		UpdatedAt: chirp.UpdatedAt,

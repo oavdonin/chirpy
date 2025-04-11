@@ -19,3 +19,4 @@ sql:
           - db_type: "varchar"
             go_type:
               type: "string"
+            nullable: true
