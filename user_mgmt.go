@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/oavdonin/chirpy/internal/auth"
+	"github.com/oavdonin/chirpy/internal/database"
 )
 
 type User struct {
@@ -28,7 +30,8 @@ func (cfg *apiConfig) resetUsersHandler(w http.ResponseWriter, r *http.Request) 
 
 func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Email string `json:"email"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 	type response struct {
 		User
@@ -44,8 +47,19 @@ func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request) 
 		respondWithError(w, http.StatusBadRequest, "Missing required field: email", nil)
 		return
 	}
-
-	user, err := cfg.db.CreateUser(r.Context(), params.Email)
+	if len(params.Password) == 0 {
+		respondWithError(w, http.StatusBadRequest, "Password length is zero", nil)
+		return
+	}
+	hashedPassword, err := auth.HashPassword(params.Password)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Error occured while password hashing", nil)
+		return
+	}
+	user, err := cfg.db.CreateUser(r.Context(), database.CreateUserParams{
+		Email:          params.Email,
+		HashedPassword: hashedPassword,
+	})
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error occured while creating a user", err)
 		return

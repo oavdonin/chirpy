@@ -11,7 +11,7 @@ import (
 
 const deleteAllUsers = `-- name: DeleteAllUsers :one
 DELETE FROM users
-RETURNING id, created_at, updated_at, email
+RETURNING id, created_at, updated_at, email, hashed_password
 `
 
 func (q *Queries) DeleteAllUsers(ctx context.Context) (User, error) {
@@ -22,6 +22,7 @@ func (q *Queries) DeleteAllUsers(ctx context.Context) (User, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Email,
+		&i.HashedPassword,
 	)
 	return i, err
 }
