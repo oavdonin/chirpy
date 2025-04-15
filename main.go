@@ -16,6 +16,7 @@ type apiConfig struct {
 	platform       string
 	fileserverHits atomic.Int32
 	db             *database.Queries
+	jwtSigningKey  []byte
 }
 
 func main() {
@@ -44,10 +45,16 @@ func main() {
 		log.Fatal("PLATFORM environment variable must be set")
 	}
 
+	jwtSigningKey := os.Getenv("JWT_SIGNING_KEY")
+	if jwtSigningKey == "" {
+		log.Fatal("JWT_SIGNING_KEY environment variable must be set")
+	}
+
 	cfg := apiConfig{
 		fileserverHits: atomic.Int32{},
 		db:             dbQueries,
 		platform:       platform,
+		jwtSigningKey:  []byte(jwtSigningKey),
 	}
 
 	mux := http.NewServeMux()
