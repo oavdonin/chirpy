@@ -20,3 +20,9 @@ sql:
             go_type:
               type: "string"
             nullable: true
+          - db_type: "timestamp"
+            go_type:
+              import: "time"
+              type: "time"
+              pointer: true
+            nullable: true

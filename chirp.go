@@ -2,11 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/oavdonin/chirpy/internal/auth"
 	"github.com/oavdonin/chirpy/internal/database"
 )
 
@@ -47,9 +49,15 @@ func replaceProfaneWords(chirp *RequestBody) {
 }
 
 func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request) {
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized: token missing or invalid", err)
+		return
+	}
+
 	decoder := json.NewDecoder(r.Body)
 	requestBody := RequestBody{}
-	err := decoder.Decode(&requestBody)
+	err = decoder.Decode(&requestBody)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error decoding parameters", err)
 		return
@@ -59,9 +67,17 @@ func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	replaceProfaneWords(&requestBody)
+
+	idFromToken, err := auth.ValidateJWT(token, string(cfg.jwtSigningKey))
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized: token is unauthorized", err)
+		log.Println(r.Header, r.RequestURI)
+		return
+	}
+
 	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
 		Body:   requestBody.Body,
-		UserID: requestBody.UserID,
+		UserID: idFromToken,
 	})
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Error occured while chirp creation.", err)

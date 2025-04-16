@@ -1,8 +1,8 @@
 package auth
 
 import (
+	"net/http"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -67,15 +67,12 @@ func TestMakeAndValidateJWT(t *testing.T) {
 	tokenSecret := "supersecret"
 
 	userID := uuid.New()
-	expiresIn := time.Minute * 5
 
-	// Создаём токен
-	tokenString, err := MakeJWT(userID, tokenSecret, expiresIn)
+	tokenString, err := MakeJWT(userID, tokenSecret)
 	if err != nil {
 		t.Fatalf("failed to create JWT: %v", err)
 	}
 
-	// Проверяем валидацию этого токена
 	validatedID, err := ValidateJWT(tokenString, tokenSecret)
 	if err != nil {
 		t.Fatalf("failed to validate JWT: %v", err)
@@ -91,13 +88,11 @@ func TestExpiredJWT(t *testing.T) {
 
 	userID := uuid.New()
 
-	// Токен с истёкшим временем
-	tokenString, err := MakeJWT(userID, tokenSecret, -time.Minute)
+	tokenString, err := MakeJWT(userID, tokenSecret)
 	if err != nil {
 		t.Fatalf("failed to create expired JWT: %v", err)
 	}
 
-	// Проверяем, что такой токен невалиден
 	_, err = ValidateJWT(tokenString, tokenSecret)
 	if err == nil {
 		t.Error("expected error when validating expired JWT, got none")
@@ -109,17 +104,78 @@ func TestInvalidSignatureJWT(t *testing.T) {
 	wrongSecret := "wrongsecret"
 
 	userID := uuid.New()
-	expiresIn := time.Minute * 5
 
-	// Создаём токен с правильным ключом
-	tokenString, err := MakeJWT(userID, tokenSecret, expiresIn)
+	tokenString, err := MakeJWT(userID, tokenSecret)
 	if err != nil {
 		t.Fatalf("failed to create JWT: %v", err)
 	}
 
-	// Проверяем, что валидация с другим ключом не проходит
 	_, err = ValidateJWT(tokenString, wrongSecret)
 	if err == nil {
 		t.Error("expected error when validating JWT with invalid signature, got none")
+	}
+}
+
+// testing getBearerToken
+func TestGetBearerToken(t *testing.T) {
+	tests := []struct {
+		name      string
+		headers   http.Header
+		wantToken string
+		expectErr bool
+	}{
+		{
+			name: "valid bearer token",
+			headers: http.Header{
+				"Authorization": []string{"Bearer my-token-123"},
+			},
+			wantToken: "my-token-123",
+			expectErr: false,
+		},
+		{
+			name:      "missing authorization header",
+			headers:   http.Header{},
+			wantToken: "",
+			expectErr: true,
+		},
+		{
+			name: "authorization header without bearer",
+			headers: http.Header{
+				"Authorization": []string{"Basic abcdefgh"},
+			},
+			wantToken: "",
+			expectErr: true,
+		},
+		{
+			name: "bearer without token",
+			headers: http.Header{
+				"Authorization": []string{"Bearer "},
+			},
+			wantToken: "",
+			expectErr: true,
+		},
+		{
+			name: "multiple authorization headers with bearer",
+			headers: http.Header{
+				"Authorization": []string{
+					"Basic abcdefgh",
+					"Bearer multi-token-456",
+				},
+			},
+			wantToken: "multi-token-456",
+			expectErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token, err := GetBearerToken(tt.headers)
+			if (err != nil) != tt.expectErr {
+				t.Errorf("expected error: %v, got: %v", tt.expectErr, err)
+			}
+			if token != tt.wantToken {
+				t.Errorf("expected token: %s, got: %s", tt.wantToken, token)
+			}
+		})
 	}
 }

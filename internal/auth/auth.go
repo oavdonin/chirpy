@@ -1,8 +1,12 @@
 package auth
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -32,22 +36,33 @@ func CheckPasswordHash(hash, password string) error {
 	return passOk
 }
 
-//JWT
+// JWT
+func GetBearerToken(headers http.Header) (string, error) {
+	authHeaders, found := headers["Authorization"]
+	if !found {
+		return "", fmt.Errorf("request Header doesn't contain the Bearer token")
+	}
+	for _, authHeader := range authHeaders {
+		parts := strings.Split(authHeader, " ")
+		if strings.TrimSpace(parts[0]) == "Bearer" {
+			if len(parts) < 2 || strings.TrimSpace(parts[1]) == "" {
+				return "", fmt.Errorf("bearer token is empty")
+			}
+			return strings.TrimSpace(parts[1]), nil
+		}
+	}
+	return "", fmt.Errorf("request Header doesn't contain the Bearer token")
+}
 
-func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (string, error) {
+func MakeJWT(userID uuid.UUID, tokenSecret string) (string, error) {
 	claims := &jwt.RegisteredClaims{
 		Issuer:    "chirpy",
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiresIn)),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 60)),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 		Subject:   userID.String(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	ss, err := token.SignedString([]byte(tokenSecret))
-	fmt.Println(ss, err)
-	if err != nil {
-		return "", err
-	}
-	return ss, nil
+	return token.SignedString([]byte(tokenSecret))
 }
 
 func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
@@ -66,4 +81,10 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 
 	fmt.Println(claims.Subject)
 	return uuid.MustParse(claims.Subject), nil
+}
+
+func MakeRefreshToken() string {
+	refreshToken := make([]byte, 32)
+	rand.Read(refreshToken)
+	return hex.EncodeToString(refreshToken)
 }

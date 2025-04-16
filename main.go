@@ -67,6 +67,8 @@ func main() {
 	mux.HandleFunc("GET /api/chirps/{id}", cfg.getCertainChirp)
 	mux.HandleFunc("POST /api/users", cfg.createUserHandler)
 	mux.HandleFunc("POST /api/login", cfg.authenticateUserHandler)
+	mux.HandleFunc("POST /api/refresh", cfg.refreshTokenHandler)
+	mux.HandleFunc("POST /api/revoke", cfg.revokeTokenHandler)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
